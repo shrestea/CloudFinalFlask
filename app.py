@@ -85,8 +85,28 @@ def create_record():
         post_db_connection(insert_query, record_to_insert)
         return jsonify({'username': username, "email": email}), 200
     return jsonify({"error": "user already exists"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
-    
-    
+
+@app.route('/datastore', methods=['GET'])
+def get_datastore():
+    value = request.args.get('value')
+    print(value)
+    query = 'select households."HSHD_NUM", transactions."BASKET_NUM", transactions."PURCHASE", transactions."PRODUCT_NUM", products."DEPARTMENT", products."COMMODITY" from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" where (households."HSHD_NUM" = %s) order by "BASKET_NUM" asc;'
+    val = (value,)
+    db_connect = get_db_connection(query, val)
+    if db_connect: 
+        return jsonify({"result": db_connect}), 200
+    return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
+
+
+@app.route('/chartage', methods=['GET'])
+def get_chartage():
+    query = 'select households."INCOME_RANGE", COUNT(*) from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" GROUP BY households."INCOME_RANGE";'
+
+    db_connect = get_db_connection(query)
+    if db_connect: 
+        return jsonify({"result": db_connect}), 200
+    return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
+
 @app.route('/', methods=['DELETE'])
 def delte_record():
     record = json.loads(request.data)
