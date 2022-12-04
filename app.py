@@ -9,6 +9,7 @@ import wsgiserver
 from init_db import get_db_connection, post_db_connection
 import psycopg2.extras
 import pandas as pd
+import math
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -90,17 +91,19 @@ def create_record():
 @app.route('/datastore', methods=['GET'])
 def get_datastore():
     value = request.args.get('value')
-    print(value)
-    query = 'select households."HSHD_NUM", transactions."BASKET_NUM", transactions."PURCHASE", transactions."PRODUCT_NUM", products."DEPARTMENT", products."COMMODITY" from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" where (households."HSHD_NUM" = %s) order by "BASKET_NUM" asc;'
-    val = (value,)
+    query = 'select households."HSHD_NUM", transactions."BASKET_NUM", transactions."PURCHASE", transactions."PRODUCT_NUM", products."DEPARTMENT", products."COMMODITY" from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" order by "BASKET_NUM" asc;'
+    val = ()
+    if value: 
+        query = 'select households."HSHD_NUM", transactions."BASKET_NUM", transactions."PURCHASE", transactions."PRODUCT_NUM", products."DEPARTMENT", products."COMMODITY" from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" where (households."HSHD_NUM" = %s) order by "BASKET_NUM" asc;'
+        val = (value,)
     db_connect = get_db_connection(query, val)
     if db_connect: 
         return jsonify({"result": db_connect}), 200
     return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
 
 
-@app.route('/chartage', methods=['GET'])
-def get_chartage():
+@app.route('/chartincome', methods=['GET'])
+def get_chartincome():
     query = 'select households."INCOME_RANGE", COUNT(*) from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" GROUP BY households."INCOME_RANGE";'
 
     db_connect = get_db_connection(query)
@@ -108,24 +111,46 @@ def get_chartage():
         return jsonify({"result": db_connect}), 200
     return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
 
-@app.route('/', methods=['DELETE'])
-def delte_record():
-    record = json.loads(request.data)
-    new_records = []
-    with open('data.txt', 'r') as f:
-        data = f.read()
-        records = json.loads(data)
-        for r in records:
-            if r['name'] == record['name']:
-                continue
-            new_records.append(r)
-    with open('data.txt', 'w') as f:
-        f.write(json.dumps(new_records, indent=2))
-    return jsonify(record)
+@app.route('/chartage', methods=['GET'])
+def get_chartage():
+    query = 'select households."AGE_RANGE", COUNT(*) from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" GROUP BY households."AGE_RANGE";'
+
+    total_query = 'select COUNT(*) from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM";'
+
+    db_connect = get_db_connection(query)
+    db_total = get_db_connection(total_query)
+    result = []
+    if db_connect and db_total: 
+        total_count = db_total[0]['count']
+        for val in db_connect:
+            percentage = val['count'] / total_count * 100
+            result.append({'AGE_RANGE': val['AGE_RANGE'], 'percentage': math.ceil(percentage*100)/100})
+            
+
+        return jsonify({"result": result}), 200
+    return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
+
+@app.route('/charthomeowner', methods=['GET'])
+def get_charthomeowner():
+    query = 'select households."HOMEOWNER", products."DEPARTMENT", COUNT(households."HOMEOWNER") from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM" GROUP BY products."DEPARTMENT", households."HOMEOWNER";'
+
+    # total_query = 'select COUNT(*) from households join transactions on transactions."HSHD_NUM" = households."HSHD_NUM" join products on products."PRODUCT_NUM" = transactions."PRODUCT_NUM";'
+
+    db_connect = get_db_connection(query)
+    # db_total = get_db_connection(total_query)
+    result = []
+    if db_connect and db_total: 
+        # total_count = db_total[0]['count']
+        # for val in db_connect:
+        #     percentage = val['count'] / total_count * 100
+        #     result.append({'AGE_RANGE': val['AGE_RANGE'], 'percentage': math.ceil(percentage*100)/100})
+        return jsonify({"result": db_connect}), 200
+    return jsonify({"error": "no data available"}), 400, {'Content-Type': 'application/json; charset=utf-8'}
+
 
 @app.route('/uploader/<string:file_for>', methods = ['GET', 'POST'])
 def upload_file(file_for):
-   if request.method == 'POST':
+   if request.method == 'POST':    
         if 'file' not in request.files:
             return ({"error": "No file in request"}), 400
         file = request.files['file']
