@@ -151,11 +151,7 @@ def upload_file(file_for):
                 value = ()
                 for val in col_names:
                     update_value = row[val]
-                    if isinstance(update_value, str):
-                        update_value = row[val].strip()
-                    print(val, row[val])
                     value = value + (update_value,)
-                print(value)
                 post_db_connection(query, value)
         
         return ({"message": "upload success"}), 200
