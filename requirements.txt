@@ -2,3 +2,4 @@ flask_cors
 werkzeug
 wsgiserver
 psycopg2-binary
+pandas

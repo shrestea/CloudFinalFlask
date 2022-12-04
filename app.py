@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 import wsgiserver
 from init_db import get_db_connection, post_db_connection
 import psycopg2.extras
+import pandas as pd
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -122,45 +123,49 @@ def delte_record():
         f.write(json.dumps(new_records, indent=2))
     return jsonify(record)
 
-@app.route('/uploader/<string:username>', methods = ['GET', 'POST'])
-def upload_file(username):
+@app.route('/uploader/<string:file_for>', methods = ['GET', 'POST'])
+def upload_file(file_for):
    if request.method == 'POST':
-        # check if the post request has the file part
-        print(username)
-
         if 'file' not in request.files:
             return ({"error": "No file in request"}), 400
         file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
+
         if file.filename == '':
             return ({"error": "No filename"}), 400
-        if file:
-            new_records = []
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            total_words=0
-            with open(os.path.join(app.config['UPLOAD_FOLDER'], filename), 'r') as fn:
-                read_data = fn.read()
-                total_words = read_data.split()
-            with open('data.txt', 'r') as f:
-                data = f.read()
-                records = json.loads(data)
-            for record in records:
-                if record['username'] == username:
-                    record['filename'] = filename
-                    record['count'] = len(total_words)
-                new_records.append(record)
-            with open('data.txt', 'w') as f:
-                f.write(json.dumps(new_records, indent=2))
-            return ({"message": "upload success", "count": len(total_words)}), 200
+        
+        query = ''
+        columns = []
+        if file_for == 'products':
+            query = 'INSERT INTO products ("PRODUCT_NUM", "DEPARTMENT","COMMODITY", "BRAND_TY", "NATURAL_ORGANIC_FLAG") VALUES (%s, %s, %s, %s, %s);'
+            col_names = ['PRODUCT_NUM','DEPARTMENT','COMMODITY', 'BRAND_TY', 'NATURAL_ORGANIC_FLAG']
+        elif file_for == 'households':
+            query = 'INSERT INTO households ("HSHD_NUM", "L","AGE_RANGE", "MARITAL", "INCOME_RANGE", "HOMEOWNER", "HSHD_COMPOSITION", "HH_SIZE", "CHILDREN") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
+            col_names = ['HSHD_NUM','L','AGE_RANGE', 'MARITAL', 'INCOME_RANGE', 'HOMEOWNER', 'HSHD_COMPOSITION', 'HH_SIZE', 'CHILDREN']
+        elif file_for == 'transactions':
+            query = 'INSERT INTO transactions ("BASKET_NUM", "HSHD_NUM","PURCHASE", "PRODUCT_NUM", "SPEND", "UNITS", "STORE_R", "WEEK_NUM", "YEAR") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);'
+            col_names = ['BASKET_NUM', 'HSHD_NUM','PURCHASE_', 'PRODUCT_NUM', 'SPEND', 'UNITS', 'STORE_R', 'WEEK_NUM', 'YEAR']
+           
+        if file: 
+            csvData = pd.read_csv(file,names=col_names, header=0)
+            for i,row in csvData.iterrows():
+                value = ()
+                for val in col_names:
+                    update_value = row[val]
+                    if isinstance(update_value, str):
+                        update_value = row[val].strip()
+                    print(val, row[val])
+                    value = value + (update_value,)
+                print(value)
+                post_db_connection(query, value)
+        
+        return ({"message": "upload success"}), 200
 
 
 
 # app.run()
 
 if __name__ == "__main__":
-    server = wsgiserver.WSGIServer(app, host='127.0.0.1',port=5000, debug=True)
+    server = wsgiserver.WSGIServer(app, host='127.0.0.1',port=6000, debug=True)
     server.start()
 
 
