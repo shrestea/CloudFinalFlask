@@ -139,7 +139,7 @@ def get_charthomeowner():
     db_connect = get_db_connection(query)
     # db_total = get_db_connection(total_query)
     result = []
-    if db_connect and db_total: 
+    if db_connect: 
         # total_count = db_total[0]['count']
         # for val in db_connect:
         #     percentage = val['count'] / total_count * 100
